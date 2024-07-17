@@ -1,11 +1,221 @@
+import uuid
+from datetime import datetime, date, timedelta
 from aiogram import Bot, Dispatcher, F
+from aiogram.filters import Command, CommandStart, StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import default_state, State, StatesGroup
+from aiogram.types import (CallbackQuery, InlineKeyboardButton,InlineKeyboardMarkup, Message, PhotoSize)
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.utils import executor
 from env import BOT_TOKEN
-from Answers import *
 storage = MemoryStorage()
 bot = Bot(BOT_TOKEN)
 dp = Dispatcher(storage=storage)
 
+user_dict: dict[int, dict[str, str | int]] = {}
+class FSMForm(StatesGroup):
+
+    fill_TicketAuthor = State()
+    fill_VisitDate = State()
+    fill_VisitTime = State()
+    fill_GroundNum = State()
+    fill_Task = State()
+    fill_Price = State()
+    fill_Advance = State()
+    fill_PhoneNum = State()
+    fill_Source = State()
+    fill_Link = State()
+    upload_photo = State()
+    upload = State()
+    fill_TicketId = uuid.uuid4()
+    fill_CreationDate =  datetime.now()
+
+@dp.message(CommandStart(), StateFilter(default_state))
+async def process_start_command(message: Message):
+    await message.answer(
+        text='Для получения информации - '
+            'отправьте команду /info'
+    )
+
+
+@dp.message(Command(commands='cancel'), StateFilter(default_state))
+async def process_cancel_command(message: Message):
+    await message.answer(
+        text='Отменять нечего. Вы вне машины состояний\n\n'
+            'Чтобы перейти к заполнению анкеты - '
+            'отправьте команду /form'
+    )
+
+@dp.message(Command(commands='cancel'), ~StateFilter(default_state))
+async def process_cancel_command_state(message: Message, state: FSMContext):
+    await message.answer(
+        text='Вы вышли из машины состояний\n\n'
+            'Чтобы снова перейти к заполнению анкеты - '
+            'отправьте команду /form'
+    )
+    await state.clear()
+
+@dp.message(Command(commands='info'))
+async def process_info_command(message:Message):
+    await message.answer(
+        text='Это бот, который позволяет быстро и удобно заполнять формы\n\n'
+            'Для начала работы отправьте /form\n\n'
+            'Для отмены заполнения анкеты отправьте /cancel',)
+
+@dp.message(Command(commands='form'), StateFilter(default_state))
+async def process_form_command(message:Message, state: FSMContext):
+        await message.answer(text='Введите имя заказчика')
+        await state.update_data(Name=message.text)
+        await state.set_state(FSMForm.fill_VisitDate)
+
+@dp.message(StateFilter(FSMForm.fill_VisitDate))
+async def process_date(message:Message, state: FSMContext):
+    dates = [date.today() + datetime(year= 1,month=1,day=i) for i in range(1, 5)]
+    keyboard: list[list[InlineKeyboardButton]] = [
+        [dates, dates],
+        [dates,dates]
+    ]
+
+    markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
+    await message.answer(
+        text='Введите дату или выберете из предложенных',
+    reply_markup = markup)
+    await state.set_state(FSMForm.fill_VisitTime)
+
+async def process_date_sent(callback: CallbackQuery, state: FSMContext):
+    date_str = callback.data
+    try:
+        input_date = date.fromisoformat(date_str)
+        if input_date >= date.today() and input_date < date.today() + datetime.day(days=100):
+            await state.update_data(VisitDate=message.text)
+        else:
+            await callback.message.answer(text='Неверная дата. Пожалуйста, введите дату в формате yyyy-mm-dd, не ранее сегодняшнего дня и не позднее 100 дней от сегодняшнего.')
+    except ValueError:
+        await callback.message.answer(text='Неверный формат даты. Пожалуйста, введите дату в формате yyyy-mm-dd.')
+
+@dp.message(StateFilter(FSMForm.fill_VisitTime))
+async def Visit_Time(message:Message, state: FSMContext):
+    FirstPart = InlineKeyboardButton(text='Первая половина дня\n(До 12:00)', callback_data='FirstPart')
+    SecondPart = InlineKeyboardButton(text='Вторая половина дня\n(После 12:00)', callback_data='SecondPart')
+    Morning = InlineKeyboardButton(text='Утро', callback_data='Morning')
+    Day = InlineKeyboardButton(text='День', callback_data='Day')
+    Evening = InlineKeyboardButton(text='Вечер', callback_data='Evening')
+
+    keyboard: list[list[InlineKeyboardButton]] = [
+        [FirstPart, SecondPart],
+        [Morning,Day,Evening]
+    ]
+    markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
+    await message.answer(
+        text='Выберете время визита',
+    reply_markup = markup)
+    await state.update_data(VisitTime=message.text)
+    await state.set_state(FSMForm.fill_GroundNum)
+
+@dp.message(StateFilter(FSMForm.fill_GroundNum))
+async def Price_(message:Message, state: FSMContext):
+        await message.answer(
+        text = 'Введите кадастровый номер (ориентира или земельного участка')
+        await state.update_data(GroundNum=message.text)
+        await state.set_state(FSMForm.fill_Task)
+
+@dp.message(StateFilter( FSMForm.fill_Task))
+async def Task_(message:Message, state: FSMContext):
+    await message.answer(
+        text = 'Введите суть заявки')
+    await state.update_data(Task=message.text)
+    await state.set_state(FSMForm.fill_Price)
+
+@dp.message(StateFilter(FSMForm.fill_Price))
+async def Task_(message:Message, state: FSMContext):
+    await message.answer(
+        text = 'Введите стоимость заявки')
+    await state.update_data(Price=message.text)
+    await state.set_state(FSMForm.fill_Advance)
+
+@dp.message(StateFilter(FSMForm.fill_Advance))
+async def Advance(message: Message, state: FSMContext):
+    Half = InlineKeyboardButton(text='Половина на выезде', callback_data='Half')
+    Already = InlineKeyboardButton(text='Уже оплачен', callback_data='Already')
+    Office = InlineKeyboardButton(text='Полную сумму  в офисе', callback_data='Office')
+    Another = InlineKeyboardButton(text='Иное', callback_data='Another')
+    keyboard: list[list[InlineKeyboardButton]] = [
+        [Half, Already],
+        [Office,Another]
+    ]
+    markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
+    await message.answer(text= 'Предоплата?', reply_markup = markup)
+    await state.update_data(Advance=message.text)
+    await state.set_state(FSMForm.fill_PhoneNum)
+
+@dp.message(StateFilter(FSMForm.fill_PhoneNum))
+async def PhoneNum1(message: Message, state: FSMContext):
+    await message.answer(text='Контакт/ы заказчика и пояснение',)
+    await state.update_data(Phone1=message.text)
+    await state.set_state(FSMForm.fill_Source)
+
+@dp.message(StateFilter(FSMForm.fill_Source))
+async def Source_Answer(message: Message, state: FSMContext):
+    MyselfAvio = InlineKeyboardButton(text='Я Авито', callback_data='MyselfAvio')
+    MyselfSarafan = InlineKeyboardButton(text='Я Сарафан', callback_data='MyselfSarafan')
+    AvitoUser = InlineKeyboardButton(text='Авито пользователь', callback_data='AvitoUser')
+    SarafanUser = InlineKeyboardButton(text='Сарафан пользователь', callback_data='SarafanUser')
+    keyboard: list[list[InlineKeyboardButton]] = [
+        [MyselfAvio, MyselfSarafan],
+        [AvitoUser,SarafanUser]
+    ]
+    markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
+    await message.answer(text='Выберите источник заявки',reply_markup = markup)
+    await state.update_data(Source=message.text)
+    await state.set_state(FSMForm.fill_Link)
+
+@dp.message(StateFilter(FSMForm.fill_Link))
+async def process_photo_sent(message:Message, state: FSMContext):
+    await message.answer(text='Введите ссылку на карту')
+    await state.update_data(Link=message.text)
+    await state.set_state(FSMForm.upload_photo)
+
+@dp.message(StateFilter(FSMForm.upload_photo),
+            F.photo[-1].as_('largest_photo'))
+async def process_photo_sent(message: Message,
+                            state: FSMContext,
+                            largest_photo: PhotoSize):
+    await message.answer(text='Завершающая часть\n\n'
+                            'Прикрепите фото')
+    await state.update_data(
+        photo_unique_id=largest_photo.file_unique_id,
+        photo_id=largest_photo.file_id
+    )
+    await state.set_state(FSMForm.upload)
+
+@dp.message(StateFilter(FSMForm.upload))
+async def show_data(message:Message, state: FSMContext):
+    if message.from_user.id in user_dict:
+        await message.answer_photo(
+            photo=user_dict[message.from_user.id]['photo_id'],
+            caption=f'Имя: {user_dict[message.from_user.id]["Name"]}\n'
+                    f'День визита: {user_dict[message.from_user.id]["VisitDate"]}\n'
+                    f'Время визита: {user_dict[message.from_user.id]["VisitTime"]}\n'
+                    f'Кадастровый номер: {user_dict[message.from_user.id]["GroundNum"]}\n'
+                    f'Суть заявки: {user_dict[message.from_user.id]["Task"]}\n'
+                    f'Стоимость: {user_dict[message.from_user.id]["Price"]}\n'
+                    f'Предоплата: {user_dict[message.from_user.id]["Advance"]}\n'
+                    f'Телефон: {user_dict[message.from_user.id]["Phone1"]}\n'
+                    f'Второй телефон: {user_dict[message.from_user.id]["Phone2"]}\n'
+                    f'Источник заявки: {user_dict[message.from_user.id]["Source"]}\n'
+                    f'Ссылка на карту: {user_dict[message.from_user.id]["Link"]}\n'
+        )
+    else:
+
+        await message.answer(
+            text='Вы еще не заполняли анкету. Чтобы приступить - '
+            'отправьте команду /start'
+        )
+        await state.clear()
+
+
+@dp.message(StateFilter(default_state))
+async def send_echo(message: Message):
+    await message.reply(text='Извините, я вас не понимаю')
+
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+    dp.run_polling(bot)
