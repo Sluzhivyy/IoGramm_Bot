@@ -69,33 +69,31 @@ async def process_form_command(message:Message, state: FSMContext):
 
 @dp.message(StateFilter(FSMForm.fill_VisitDate))
 async def process_date(message:Message, state: FSMContext):
-    dates = [date.today() + datetime(year= 1,month=1,day=i) for i in range(1, 5)]
-    keyboard: list[list[InlineKeyboardButton]] = [
-        [dates, dates],
-        [dates,dates]
+    dates = [date.today() + timedelta(days=i) for i in range(1, 5)]
+    keyboard = [
+        [InlineKeyboardButton(text=str(d), callback_data=f'date:{d}') for d in dates],
     ]
-
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
     await message.answer(
         text='Введите дату или выберете из предложенных',
     reply_markup = markup)
-    await state.set_state(FSMForm.fill_VisitTime)
+@dp.callback_query(StateFilter(FSMForm.fill_VisitDate), F.data.in_(['dates']))
+async def VisitDate_press(callback: CallbackQuery, state: FSMContext):
+            await state.update_data(VisitDay=callback.data)
+            await state.set_state(FSMForm.fill_VisitTime)
 
-async def process_date_sent(callback: CallbackQuery, state: FSMContext):
-    date_str = callback.data
-    try:
-        input_date = date.fromisoformat(date_str)
-        if input_date >= date.today() and input_date < date.today() + datetime.day(days=100):
-            await state.update_data(VisitDate=message.text)
-        else:
-            await callback.message.answer(text='Неверная дата. Пожалуйста, введите дату в формате yyyy-mm-dd, не ранее сегодняшнего дня и не позднее 100 дней от сегодняшнего.')
-    except ValueError:
-        await callback.message.answer(text='Неверный формат даты. Пожалуйста, введите дату в формате yyyy-mm-dd.')
+
+@dp.message(StateFilter(FSMForm.fill_VisitDate))
+async def warning_not_data(message: Message):
+        await message.answer(
+        text='Что это?'
+    )
+
 
 @dp.message(StateFilter(FSMForm.fill_VisitTime))
 async def Visit_Time(message:Message, state: FSMContext):
-    FirstPart = InlineKeyboardButton(text='Первая половина дня\n(До 12:00)', callback_data='FirstPart')
-    SecondPart = InlineKeyboardButton(text='Вторая половина дня\n(После 12:00)', callback_data='SecondPart')
+    FirstPart = InlineKeyboardButton(text='Первая половина дня', callback_data='FirstPart')
+    SecondPart = InlineKeyboardButton(text='Вторая половина дня', callback_data='SecondPart')
     Morning = InlineKeyboardButton(text='Утро', callback_data='Morning')
     Day = InlineKeyboardButton(text='День', callback_data='Day')
     Evening = InlineKeyboardButton(text='Вечер', callback_data='Evening')
@@ -109,7 +107,13 @@ async def Visit_Time(message:Message, state: FSMContext):
         text='Выберете время визита',
     reply_markup = markup)
     await state.update_data(VisitTime=message.text)
-    await state.set_state(FSMForm.fill_GroundNum)
+
+
+@dp.callback_query(StateFilter(FSMForm.fill_VisitTime),
+                F.data.in_(['FirstPart', 'SecondPart', 'Morning', 'Day', 'Evening']))
+async def VisitTime_press(callback: CallbackQuery, state: FSMContext):
+        await state.update_data(VisitTime=callback.data)
+        await state.set_state(FSMForm.fill_GroundNum)
 
 @dp.message(StateFilter(FSMForm.fill_GroundNum))
 async def Price_(message:Message, state: FSMContext):
@@ -146,6 +150,11 @@ async def Advance(message: Message, state: FSMContext):
     await message.answer(text= 'Предоплата?', reply_markup = markup)
     await state.update_data(Advance=message.text)
     await state.set_state(FSMForm.fill_PhoneNum)
+@dp.callback_query(StateFilter(FSMForm.fill_VisitTime),
+                F.data.in_(['Half', 'Already', 'Office', 'Another']))
+async def process_VisitTime_press(callback: CallbackQuery, state: FSMContext):
+        await state.update_data(Advance=callback.data)
+        await state.set_state(FSMForm.fill_PhoneNum)
 
 @dp.message(StateFilter(FSMForm.fill_PhoneNum))
 async def PhoneNum1(message: Message, state: FSMContext):
@@ -166,7 +175,12 @@ async def Source_Answer(message: Message, state: FSMContext):
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
     await message.answer(text='Выберите источник заявки',reply_markup = markup)
     await state.update_data(Source=message.text)
-    await state.set_state(FSMForm.fill_Link)
+
+@dp.callback_query(StateFilter(FSMForm.fill_VisitTime),
+                F.data.in_(['MyselfAvio', 'MyselfSarafan', 'AvitoUser', 'SarafanUser']))
+async def VisitTime_press(callback: CallbackQuery, state: FSMContext):
+        await state.update_data(Source=callback.data)
+        await state.set_state(FSMForm.fill_Link)
 
 @dp.message(StateFilter(FSMForm.fill_Link))
 async def process_photo_sent(message:Message, state: FSMContext):
