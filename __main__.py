@@ -48,7 +48,7 @@ async def process_cancel_command(message: Message):
 @dp.message(Command(commands='cancel'), ~StateFilter(default_state))
 async def process_cancel_command_state(message: Message, state: FSMContext):
     await message.answer(
-        text='Вы вышли из машины состояний\n\n'
+        text='Вы вышли из запонения анкеты\n\n'
             'Чтобы снова перейти к заполнению анкеты - '
             'отправьте команду /form'
     )
@@ -76,44 +76,52 @@ async def process_date(message:Message, state: FSMContext):
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
     await message.answer(
         text='Введите дату или выберете из предложенных',
-    reply_markup = markup)
-@dp.callback_query(StateFilter(FSMForm.fill_VisitDate), F.data.in_(['dates']))
-async def VisitDate_press(callback: CallbackQuery, state: FSMContext):
-            await state.update_data(VisitDay=callback.data)
-            await state.set_state(FSMForm.fill_VisitTime)
-
-
-@dp.message(StateFilter(FSMForm.fill_VisitDate))
-async def warning_not_data(message: Message):
-        await message.answer(
-        text='Что это?'
+        reply_markup=markup
     )
+    await state.update_data(VisitDate= message.text)
+    await state.set_state(FSMForm.fill_VisitTime)
 
+
+@dp.callback_query(StateFilter(FSMForm.fill_VisitDate), F.data.startswith('date:'))
+async def VisitDate_press(callback: CallbackQuery, state: FSMContext):
+
+    date_str = callback.data.split(':')[1]
+    try:
+        input_date = date.fromisoformat(date_str)
+        if input_date >= date.today() and input_date < date.today() + timedelta(days=100):
+            await state.update_data(VisitDate=callback.data)
+            await callback.message.answer(f'Вы выбрали дату: {callback.data}')
+
+            await state.set_state(FSMForm.fill_VisitTime)
+        else:
+            await callback.message.answer(text='Неверная дата. Пожалуйста, введите дату в формате yyyy-mm-dd, не ранее сегодняшнего дня и не позднее 100 дней от сегодняшнего.')
+    except ValueError:
+        await callback.message.answer(text='Неверный формат даты. Пожалуйста, введите дату в формате yyyy-mm-dd.')
 
 @dp.message(StateFilter(FSMForm.fill_VisitTime))
-async def Visit_Time(message:Message, state: FSMContext):
+async def Visit_Timed(message:Message, state: FSMContext):
     FirstPart = InlineKeyboardButton(text='Первая половина дня', callback_data='FirstPart')
     SecondPart = InlineKeyboardButton(text='Вторая половина дня', callback_data='SecondPart')
     Morning = InlineKeyboardButton(text='Утро', callback_data='Morning')
     Day = InlineKeyboardButton(text='День', callback_data='Day')
     Evening = InlineKeyboardButton(text='Вечер', callback_data='Evening')
 
-    keyboard: list[list[InlineKeyboardButton]] = [
+    keyboard = [
         [FirstPart, SecondPart],
-        [Morning,Day,Evening]
+        [Morning, Day, Evening]
     ]
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
     await message.answer(
         text='Выберете время визита',
-    reply_markup = markup)
-    await state.update_data(VisitTime=message.text)
+        reply_markup=markup
+    )
 
-
-@dp.callback_query(StateFilter(FSMForm.fill_VisitTime),
-                F.data.in_(['FirstPart', 'SecondPart', 'Morning', 'Day', 'Evening']))
+@dp.callback_query(StateFilter(FSMForm.fill_VisitTime), F.data.in_(['FirstPart', 'SecondPart', 'Morning', 'Day', 'Evening']))
 async def VisitTime_press(callback: CallbackQuery, state: FSMContext):
-        await state.update_data(VisitTime=callback.data)
-        await state.set_state(FSMForm.fill_GroundNum)
+    await state.update_data(VisitTime=callback.data)
+    await callback.message.answer(f'Вы выбрали время: {callback.data}')
+    await state.set_state(FSMForm.fill_GroundNum)
+
 
 @dp.message(StateFilter(FSMForm.fill_GroundNum))
 async def Price_(message:Message, state: FSMContext):
@@ -150,6 +158,7 @@ async def Advance(message: Message, state: FSMContext):
     await message.answer(text= 'Предоплата?', reply_markup = markup)
     await state.update_data(Advance=message.text)
     await state.set_state(FSMForm.fill_PhoneNum)
+
 @dp.callback_query(StateFilter(FSMForm.fill_VisitTime),
                 F.data.in_(['Half', 'Already', 'Office', 'Another']))
 async def process_VisitTime_press(callback: CallbackQuery, state: FSMContext):
