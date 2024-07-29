@@ -63,9 +63,28 @@ async def process_info_command(message:Message):
 
 @dp.message(Command(commands='form'), StateFilter(default_state))
 async def process_form_command(message:Message, state: FSMContext):
+        await message.answer(text='Вы в форме заполнения анкеты !')
         await message.answer(text='Введите имя заказчика')
-        await state.update_data(Name=message.text)
-        await state.set_state(FSMForm.fill_VisitDate)
+        await state.set_state(FSMForm.fill_TicketAuthor)
+
+
+
+@dp.message(StateFilter(FSMForm.fill_TicketAuthor), F.text.isalpha())
+async def process_name_sent(message: Message, state: FSMContext):
+    await state.update_data(name=message.text)
+    ss = await state.get_data()
+    print(ss)
+    await state.set_state(FSMForm.fill_VisitDate)
+
+@dp.message(StateFilter(FSMForm.fill_TicketAuthor))
+async def warning_not_name(message: Message):
+    await message.answer(
+        text='То, что вы отправили не похоже на имя\n\n'
+            'Пожалуйста, введите ваше имя\n\n'
+            'Если вы хотите прервать заполнение анкеты - '
+            'отправьте команду /cancel'
+    )
+
 
 @dp.message(StateFilter(FSMForm.fill_VisitDate))
 async def process_date(message:Message, state: FSMContext):
@@ -78,20 +97,18 @@ async def process_date(message:Message, state: FSMContext):
         text='Введите дату, ниже выведены подсказки по датам',
         reply_markup=markup
     )
-    await state.update_data(VisitDate= message.text)
-    await state.set_state(FSMForm.fill_VisitTime)
 
 
 @dp.callback_query(StateFilter(FSMForm.fill_VisitDate), F.data.startswith('date:'))
 async def VisitDate_press(callback: CallbackQuery, state: FSMContext):
-
     date_str = callback.data.split(':')[1]
     try:
         input_date = date.fromisoformat(date_str)
         if input_date >= date.today() and input_date < date.today() + timedelta(days=100):
-            await state.update_data(VisitDate=callback.data)
-            await callback.message.answer(f'Вы выбрали дату: {callback.data}')
-
+            await state.update_data(VisitDate=input_date)
+            await callback.message.answer(f'Вы выбрали дату: {input_date.strftime("%Y-%m-%d")}')
+            data = await state.get_data()
+            print(data)
             await state.set_state(FSMForm.fill_VisitTime)
         else:
             await callback.message.answer(text='Неверная дата. Пожалуйста, введите дату в формате yyyy-mm-dd, не ранее сегодняшнего дня и не позднее 100 дней от сегодняшнего.')
@@ -120,6 +137,8 @@ async def Visit_Timed(message: Message, state: FSMContext):
 @dp.callback_query(F.data.in_(['FirstPart', 'SecondPart', 'Morning', 'Daytime', 'Evening']))
 async def VisitTime_press(callback: CallbackQuery, state: FSMContext):
     await state.update_data(VisitTime=callback.data)
+    ss = state.get_data()
+    print(ss)
     await callback.message.answer(f'Вы выбрали время: {callback.data}')
     await state.set_state(FSMForm.fill_GroundNum)
 
@@ -129,6 +148,8 @@ async def Price_(message:Message, state: FSMContext):
         await message.answer(
         text = 'Введите кадастровый номер (ориентира или земельного участка')
         await state.update_data(GroundNum=message.text)
+        ss = state.get_data()
+        print(ss)
         await state.set_state(FSMForm.fill_Task)
 
 @dp.message(StateFilter( FSMForm.fill_Task))
@@ -136,6 +157,8 @@ async def Task_(message:Message, state: FSMContext):
     await message.answer(
         text = 'Введите суть заявки')
     await state.update_data(Task=message.text)
+    ss = state.get_data()
+    print(ss)
     await state.set_state(FSMForm.fill_Price)
 
 @dp.message(StateFilter(FSMForm.fill_Price))
@@ -143,6 +166,8 @@ async def Task_(message:Message, state: FSMContext):
     await message.answer(
         text = 'Введите стоимость заявки')
     await state.update_data(Price=message.text)
+    ss = state.get_data()
+    print(ss)
     await state.set_state(FSMForm.fill_Advance)
 
 @dp.message(StateFilter(FSMForm.fill_Advance))
@@ -157,19 +182,22 @@ async def Advance(message: Message, state: FSMContext):
     ]
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
     await message.answer(text= 'Предоплата?', reply_markup = markup)
-    await state.update_data(Advance=message.text)
     await state.set_state(FSMForm.fill_PhoneNum)
 
 @dp.callback_query(StateFilter(FSMForm.fill_VisitTime),
                 F.data.in_(['Half', 'Already', 'Office', 'Another']))
 async def process_VisitTime_press(callback: CallbackQuery, state: FSMContext):
         await state.update_data(Advance=callback.data)
+        ss = state.get_data()
+        print(ss)
 
 
 @dp.message(StateFilter(FSMForm.fill_PhoneNum))
 async def PhoneNum1(message: Message, state: FSMContext):
     await message.answer(text='Контакт/ы заказчика и пояснение',)
     await state.update_data(Phone1=message.text)
+    ss = state.get_data()
+    print(ss)
     await state.set_state(FSMForm.fill_Source)
 
 @dp.message(StateFilter(FSMForm.fill_Source))
@@ -184,18 +212,18 @@ async def Source_Answer(message: Message, state: FSMContext):
     ]
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
     await message.answer(text='Выберите источник заявки',reply_markup = markup)
-    await state.update_data(Source=message.text)
+    await state.set_state(FSMForm.fill_Link)
 
 @dp.callback_query(StateFilter(FSMForm.fill_VisitTime),
                 F.data.in_(['MyselfAvio', 'MyselfSarafan', 'AvitoUser', 'SarafanUser']))
 async def VisitTime_press(callback: CallbackQuery, state: FSMContext):
         await state.update_data(Source=callback.data)
-        await state.set_state(FSMForm.fill_Link)
 
 @dp.message(StateFilter(FSMForm.fill_Link))
 async def process_photo_sent(message:Message, state: FSMContext):
     await message.answer(text='Введите ссылку на карту')
     await state.update_data(Link=message.text)
+    await state.set_state(FSMForm.fill_Link)
     await state.set_state(FSMForm.upload_photo)
 
 @dp.message(StateFilter(FSMForm.upload_photo),
@@ -209,6 +237,8 @@ async def process_photo_sent(message: Message,
         photo_unique_id=largest_photo.file_unique_id,
         photo_id=largest_photo.file_id
     )
+    ss = state.get_data()
+    print(ss)
     await state.set_state(FSMForm.upload)
 
 @dp.message(StateFilter(FSMForm.upload))
