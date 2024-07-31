@@ -216,10 +216,18 @@ async def process_photo_sent(message: Message,state: FSMContext,largest_photo: P
         photo_id=largest_photo.file_id
     )
     print(await state.get_data())
-    await state.set_state(FSMForm.upload)
+    await state.clear()
+    await message.answer(
+        text='Спасибо! Ваши данные сохранены!\n\n'
+            'Вы вышли из машины состояний'
+    )
+    await message.answer(
+        text='Чтобы посмотреть данные вашей '
+            'анкеты - отправьте команду /show'
+    )
 
-@dp.message(StateFilter(FSMForm.upload))
-async def show_data(message:Message, state: FSMContext):
+@dp.message(Command(commands='show'), StateFilter(default_state))
+async def process_showdata_command(message: Message):
     if message.from_user.id in user_dict:
         await message.answer_photo(
             photo=user_dict[message.from_user.id]['photo_id'],
@@ -240,7 +248,6 @@ async def show_data(message:Message, state: FSMContext):
             text='Вы еще не заполняли анкету. Чтобы приступить - '
             'отправьте команду /start'
         )
-        await state.clear()
 
 
 @dp.message(StateFilter(default_state))
