@@ -70,9 +70,10 @@ async def process_form_command(message:Message, state: FSMContext):
 
 @dp.message(StateFilter(FSMForm.fill_TicketAuthor))
 async def process_name_sent(message: Message, state: FSMContext):
-    await state.update_data(name=message.text)
+    await state.update_data(Name=message.text)
     print(await state.get_data())
     await state.set_state(FSMForm.fill_VisitDate)
+    await process_date(message, state)  # Trigger the date input immediately
 
 @dp.message(StateFilter(FSMForm.fill_VisitDate))
 async def process_date(message:Message, state: FSMContext):
@@ -82,7 +83,7 @@ async def process_date(message:Message, state: FSMContext):
     ]
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
     await message.answer(
-        text='Введите дату, ниже выведены подсказки по датам',
+        text='Выберите дату визита к клиенту',
         reply_markup=markup
     )
 
@@ -216,6 +217,7 @@ async def process_photo_sent(message: Message,state: FSMContext,largest_photo: P
         photo_id=largest_photo.file_id
     )
     print(await state.get_data())
+    user_dict[message.from_user.id] = await state.get_data()
     await state.clear()
     await message.answer(
         text='Спасибо! Ваши данные сохранены!\n\n'
@@ -228,25 +230,32 @@ async def process_photo_sent(message: Message,state: FSMContext,largest_photo: P
 
 @dp.message(Command(commands='show'), StateFilter(default_state))
 async def process_showdata_command(message: Message):
-    if message.from_user.id in user_dict:
-        await message.answer_photo(
-            photo=user_dict[message.from_user.id]['photo_id'],
-            caption=f'Имя: {user_dict[message.from_user.id]["Name"]}\n'
-                    f'День визита: {user_dict[message.from_user.id]["VisitDate"]}\n'
-                    f'Время визита: {user_dict[message.from_user.id]["VisitTime"]}\n'
-                    f'Кадастровый номер: {user_dict[message.from_user.id]["GroundNum"]}\n'
-                    f'Суть заявки: {user_dict[message.from_user.id]["Task"]}\n'
-                    f'Стоимость: {user_dict[message.from_user.id]["Price"]}\n'
-                    f'Предоплата: {user_dict[message.from_user.id]["Advance"]}\n'
-                    f'Телефон: {user_dict[message.from_user.id]["Phone1"]}\n'
-                    f'Источник заявки: {user_dict[message.from_user.id]["Source"]}\n'
-                    f'Ссылка на карту: {user_dict[message.from_user.id]["Link"]}\n'
-        )
+    if user_dict:
+        for user_id, user_data in user_dict.items():
+            caption = (
+                f'Номер заявки: {uuid.uuid4()}\n'
+                f'Дата создания заявки: {datetime.now()}\n'
+                f'Имя: {user_data["Name"]}\n'
+                f'День визита: {user_data["VisitDate"]}\n'
+                f'Время визита: {user_data["VisitTime"]}\n'
+                f'Кадастровый номер: {user_data["GroundNum"]}\n'
+                f'Суть заявки: {user_data["Task"]}\n'
+                f'Стоимость: {user_data["Price"]}\n'
+                f'Предоплата: {user_data["Advance"]}\n'
+                f'Телефон: {user_data["Phone1"]}\n'
+                f'Источник заявки: {user_data["Source"]}\n'
+                f'Ссылка на карту: {user_data["Link"]}\n'
+            )
+
+            await message.answer_photo(
+                photo=user_data['photo_id'],
+                caption=caption
+            )
     else:
 
         await message.answer(
             text='Вы еще не заполняли анкету. Чтобы приступить - '
-            'отправьте команду /start'
+            'отправьте команду /form'
         )
 
 
