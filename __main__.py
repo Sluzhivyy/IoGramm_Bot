@@ -69,15 +69,14 @@ async def process_menu(message: Message, state: FSMContext):
     await state.set_state(FSMForm.menu)  # Перевод в состояние меню
     await message.answer(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=create_menu_keyboard())
 
-# Обработчик выбора опции "Перейти в заполнение формы"
-@dp.callback_query(text='form')
+@dp.callback_query(lambda c: c.data == 'form')
 async def option1_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text("Вы выбрали заполнение анкеты")
     await state.set_state(FSMForm.work_type)
     await callback.message.answer(text='Введите вид работ')
 
 # Обработчик выбора опции "Получение информации по функционалу"
-@dp.callback_query(text='info')
+@dp.callback_query(lambda c: c.data == 'info')
 async def option2_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text("Вы выбрали информацию о функционале")
     await callback.message.answer(
@@ -167,7 +166,7 @@ async def process_GroundNum(message: Message, state: FSMContext):
     )
 
 # Обработчик кнопки "Ввести кадастровый позже"
-@dp.callback_query(text='Later')
+@dp.callback_query(StateFilter(FSMForm.fill_GroundNum), F.data == 'Later')
 async def choise_later(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.fill_Task)
     await callback.message.edit_text(
@@ -182,7 +181,7 @@ async def choise_later(callback: CallbackQuery, state: FSMContext):
     )
 
 # Обработчик кнопки "Назад" в вводе кадастрового номера
-@dp.callback_query(text='Back')
+@dp.callback_query(StateFilter(FSMForm.fill_GroundNum), F.data == 'Back')
 async def back_to_prev(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.fill_VisitTime)
     await callback.message.edit_text(
@@ -190,7 +189,7 @@ async def back_to_prev(callback: CallbackQuery, state: FSMContext):
     )
 
 # Обработчик кнопки "Отменить ввод" в вводе кадастрового номера
-@dp.callback_query(text='menu')
+@dp.callback_query(StateFilter(FSMForm.fill_GroundNum), F.data == 'menu')
 async def return_to_menu(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text('Вы вернулись в главное меню.')
@@ -225,7 +224,7 @@ async def task_media(message: Message, state: FSMContext):
         await message.answer("Пожалуйста, прикрепите фото или файл.")
 
 # Обработчик кнопки "Назад" в описании заявки
-@dp.callback_query(text='Back')
+@dp.callback_query(StateFilter(FSMForm.fill_Task), F.data == 'Back')
 async def back_to_prev(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.fill_GroundNum)
     await callback.message.edit_text(
@@ -240,7 +239,7 @@ async def back_to_prev(callback: CallbackQuery, state: FSMContext):
     )
 
 # Обработчик кнопки "Ввести позже" в описании заявки
-@dp.callback_query(text='Later')
+@dp.callback_query(StateFilter(FSMForm.fill_Task), F.data == 'Later')
 async def choise_later(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.fill_Source)
     await callback.message.edit_text(
@@ -259,7 +258,7 @@ async def choise_later(callback: CallbackQuery, state: FSMContext):
     )
 
 # Обработчик кнопки "Отменить ввод" в описании заявки
-@dp.callback_query(text='menu')
+@dp.callback_query(StateFilter(FSMForm.fill_Task), F.data == 'menu')
 async def return_to_menu(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text('Вы вернулись в главное меню.')
@@ -278,7 +277,7 @@ async def price(message: Message, state: FSMContext):
     await message.edit_text(text='Восхитительно, а теперь выберите вариант предоплаты:', reply_markup=markup)
 
 # Обработчик кнопки "Назад" в вводе цены
-@dp.callback_query(text='Back')
+@dp.callback_query(StateFilter(FSMForm.fill_Price), F.data == 'Back')
 async def back_to_prev(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.fill_Task)
     await callback.message.edit_text(
@@ -293,7 +292,7 @@ async def back_to_prev(callback: CallbackQuery, state: FSMContext):
     )
 
 # Обработчик кнопки "Ввести позже" в вводе цены
-@dp.callback_query(text='Later')
+@dp.callback_query(StateFilter(FSMForm.fill_Price), F.data == 'Later')
 async def choise_later(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.fill_Source)
     await callback.message.edit_text(
@@ -312,7 +311,7 @@ async def choise_later(callback: CallbackQuery, state: FSMContext):
     )
 
 # Обработчик кнопки "Отменить ввод" в вводе цены
-@dp.callback_query(text='menu')
+@dp.callback_query(StateFilter(FSMForm.fill_Price), F.data == 'menu')
 async def return_to_menu(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text('Вы вернулись в главное меню.')
@@ -345,7 +344,7 @@ async def source_press(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(text='Лучше не бывает, а теперь введите ссылку')
 
 # Обработчик кнопки "Назад" в выборе источника заявки
-@dp.callback_query(text='Back')
+@dp.callback_query(StateFilter(FSMForm.fill_Source), F.data == 'Back')
 async def back_to_prev(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.fill_Price)
     await callback.message.edit_text(
@@ -353,7 +352,7 @@ async def back_to_prev(callback: CallbackQuery, state: FSMContext):
     )
 
 # Обработчик кнопки "Ввести позже" в выборе источника заявки
-@dp.callback_query(text='Later')
+@dp.callback_query(StateFilter(FSMForm.fill_Source), F.data == 'Later')
 async def choise_later(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.upload)
     await callback.message.edit_text(
@@ -376,7 +375,7 @@ async def choise_later(callback: CallbackQuery, state: FSMContext):
     )
 
 # Обработчик кнопки "Отменить ввод" в выборе источника заявки
-@dp.callback_query(text='menu')
+@dp.callback_query(StateFilter(FSMForm.fill_Source), F.data == 'menu')
 async def return_to_menu(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text('Вы вернулись в главное меню.')
@@ -409,7 +408,7 @@ async def process_link(message: Message, state: FSMContext):
     )
 
 # Обработчик отправки заявки
-@dp.callback_query(text='publish')
+@dp.callback_query(StateFilter(FSMForm.fill_Link), F.data == 'publish')
 async def publish_handler(call: CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
     if user_data:
@@ -430,14 +429,14 @@ async def publish_handler(call: CallbackQuery, state: FSMContext):
             await call.message.delete()
         except MessageToDeleteNotFound:
             pass  # В случае, если сообщение уже было удалено
-        await state.finish()
+        await state.clear()
         if 'Media' in user_data:
             await bot.send_photo(chat_id=call.message.chat.id, photo=user_data['Media'], caption=caption)
         else:
             await bot.send_message(chat_id=call.message.chat.id, text=caption)
 
 # Обработчик отправки заявки и создания новой
-@dp.callback_query(text='publish_and_create')
+@dp.callback_query(StateFilter(FSMForm.fill_Link), F.data == 'publish_and_create')
 async def publish_and_create_handler(call: CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
     if user_data:
@@ -466,7 +465,7 @@ async def publish_and_create_handler(call: CallbackQuery, state: FSMContext):
             await bot.send_message(chat_id=call.message.chat.id, text=caption)
 
 # Обработчик кнопки "Назад" при просмотре заявки
-@dp.callback_query(text='Back')
+@dp.callback_query(StateFilter(FSMForm.fill_Link), F.data == 'Back')
 async def back_handler(call: CallbackQuery, state: FSMContext):
     await call.answer("Вернулись к предыдущему шагу")
     await call.message.delete()
@@ -474,7 +473,7 @@ async def back_handler(call: CallbackQuery, state: FSMContext):
     await call.message.answer(text='Лучше не бывает, а теперь введите ссылку')
 
 # Обработчик кнопки "Отменить ввод" при просмотре заявки
-@dp.callback_query(text='cancel')
+@dp.callback_query(StateFilter(FSMForm.fill_Link), F.data == 'cancel')
 async def cancel_handler(call: CallbackQuery, state: FSMContext):
     await call.answer("Ввод отменен")
     await call.message.delete()
