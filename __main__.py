@@ -14,6 +14,8 @@ dp = Dispatcher(storage=storage)
 locale.setlocale(locale.LC_ALL, 'ru_RU')
 user_dict: dict[int, dict[str, str | int]] = {}
 
+
+# Состояния для FSM
 class FSMForm(StatesGroup):
     menu = State()
     work_type = State()
@@ -21,78 +23,72 @@ class FSMForm(StatesGroup):
     fill_VisitTime = State()
     fill_GroundNum = State()
     fill_Task = State()
+    fill_Task_Media = State()
     fill_Price = State()
     fill_Source = State()
     fill_Link = State()
     upload = State()
-    fill_Task_Media = State()
-
-# Функция для создания клавиатуры
-def create_menu_keyboard():
-    Form = InlineKeyboardButton(text='Перейти в заполнение формы', callback_data='/form')
-    Info = InlineKeyboardButton(text='Получение информации по функционалу', callback_data='/info')
-    keyboard: list[list[InlineKeyboardButton]] = [
-        [Form, Info],
-    ]
-    markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
-    return markup
 
 # Обработчик команды /start
-@dp.message(CommandStart(), StateFilter(FSMForm.menu))
+@dp.message(CommandStart())
 async def process_start_command(message: Message):
     await message.answer(
         text='Для получения информации - '
-            'отправьте команду /info'
-            'Для перехода в меню, отправте команду /menu'
+            'отправьте команду /info n'
+            'Для перехода в меню, отправьте команду /menu'
     )
 
 # Обработчик команды /cancel
-@dp.message(Command(commands='cancel'), StateFilter(FSMForm.menu))
-async def process_cancel_command(message: Message):
+@dp.message(Command(commands='cancel'))
+async def process_cancel_command(message: Message, state: FSMContext):
     await message.answer(
-        text='Отменять нечего. Вы вне машины состоянийnn'
-            'Чтобы перейти к заполнению анкеты - '
+        text='Отмена ввода. Вы вернулись в главное меню.'
     )
-
-# Обработчик команды /cancel при нахождении в FSM
-@dp.message(Command(commands='cancel'), ~StateFilter(FSMForm.menu))
-async def process_cancel_command_state(message: Message, state: FSMContext):
-    await message.answer(
-        text='Вы вышли из запонения анкетыnn'
-            'Чтобы снова перейти к заполнению анкеты - '
-    )
-    await state.clear()
+    await state.clear()  # Очищаем состояние FSM
 
 # Обработчик команды /info
 @dp.message(Command(commands='info'))
 async def process_info_command(message: Message):
     await message.answer(
-        text='Это бот, который позволяет быстро и удобно заполнять формы\n\n'
+        text='Это бот, который позволяет быстро и удобно заполнять формы'
     )
 
+# Функция для создания клавиатуры меню
+def create_menu_keyboard():
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text='Заполнить форму', callback_data='form')],
+            [InlineKeyboardButton(text='Информация о функционале', callback_data='info')]
+        ]
+    )
+    return keyboard
+
 # Обработчик команды /menu
-@dp.message(Command(commands='menu'), StateFilter(FSMForm.menu))
+@dp.message(Command(commands='menu'))
 async def process_menu(message: Message, state: FSMContext):
-    markup = create_menu_keyboard()
-    await message.edit_text(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=markup)
+    await state.set_state(FSMForm.menu)  # Перевод в состояние меню
+    await message.answer(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=create_menu_keyboard())
 
 # Обработчик выбора опции "Перейти в заполнение формы"
-@dp.message_handler(lambda message: message == "/form", state=FSMForm.menu)
-async def option1_handler(message: Message, state: FSMContext):
-    await message.answer("Вы выбрали заполнение анкеты")
+@dp.callback_query(text='form')
+async def option1_handler(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text("Вы выбрали заполнение анкеты")
     await state.set_state(FSMForm.work_type)
+    await callback.message.answer(text='Введите вид работ')
 
 # Обработчик выбора опции "Получение информации по функционалу"
-@dp.message_handler(lambda message: message == "/info", state=FSMForm.menu)
-async def option1_handler(message: Message, state: FSMContext):
-    await message.answer("Вы выбрали информацию о функционале")
-    await state.set_state(FSMForm.menu)
+@dp.callback_query(text='info')
+async def option2_handler(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text("Вы выбрали информацию о функционале")
+    await callback.message.answer(
+        text='Это бот, который позволяет быстро и удобно заполнять формы'
+    )
+    await state.set_state(FSMForm.menu)  # Возврат в меню
 
-# Обработчик ввода типа работ
+# Обработчик ввода вида работ
 @dp.message(StateFilter(FSMForm.work_type))
 async def process_name_sent(message: Message, state: FSMContext):
     await state.update_data(WorkType=message.text)
-    await state.set_state(FSMForm.fill_VisitDate)
 
     PlanHouse = InlineKeyboardButton(text='Техплан жилой дом', callback_data='Техплан жилой дом')
     PlanGarage = InlineKeyboardButton(text='Техплан гараж', callback_data='Техплан гараж')
@@ -113,132 +109,34 @@ async def process_advance_press(callback: CallbackQuery, state: FSMContext):
     work_choise = callback.data
     await callback.message.edit_text(f"Вы выбрали: {work_choise}")
     await callback.message.answer(text='Хорошо, а теперь введите контактные данные и пояснения')
-    await state.set_state(FSMForm.fill_PhoneNum)
-
-# Обработчик кнопки "Вернуться в главное меню"
-@dp.callback_query(StateFilter(FSMForm.work_type), F.data == 'GoBack')
-async def process_go_back(callback: CallbackQuery, state: FSMContext):
-    await state.finish()
-    await callback.message.edit_text("Вы вернулись в главное меню.")
-    await state.set_state(FSMForm.menu)
-
-# Обработчик ввода даты визита
-@dp.message(StateFilter(FSMForm.fill_VisitDate))
-async def process_date(message: Message, state: FSMContext):
-    today = date.today()
-    tomorrow = today + timedelta(days=1)
-    dates = [today + timedelta(days=i) for i in range(2, 6)]
-    keyboard = [
-        [InlineKeyboardButton(text='Без выезда', callback_data='Без выезда')],
-        [InlineKeyboardButton(text='Сегодня', callback_data=f'date:{today.isoformat()}')],
-        [InlineKeyboardButton(text='Завтра', callback_data=f'date:{tomorrow.isoformat()}')],
-    ] + [
-        [InlineKeyboardButton(text=f'{d.strftime("%d.%m.%y")} ({d.strftime("%a")[:2].capitalize()})',
-                            callback_data=f'date:{d.isoformat()}') for d in dates]
-    ]
-    keyboard.append([InlineKeyboardButton(text='В главное меню', callback_data='menu')])
-    markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
-    async def process_info_command(message: Message):
-        await message.answer(
-        text='Это бот, который позволяет быстро и удобно заполнять формы\n\n'
-    )
-
-# Обработчик команды /menu
-@dp.message(Command(commands='menu'), StateFilter(FSMForm.menu))
-async def process_menu(message: Message, state: FSMContext):
-    markup = create_menu_keyboard()
-    await message.edit_text(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=markup)
-
-# Обработчик выбора опции "Перейти в заполнение формы"
-@dp.message_handler(lambda message: message == "/form", state=FSMForm.menu)
-async def option1_handler(message: Message, state: FSMContext):
-    await message.answer("Вы выбрали заполнение анкеты")
-    await state.set_state(FSMForm.work_type)
-
-# Обработчик выбора опции "Получение информации по функционалу"
-@dp.message_handler(lambda message: message == "/info", state=FSMForm.menu)
-async def option1_handler(message: Message, state: FSMContext):
-    await message.answer("Вы выбрали информацию о функционале")
-    await state.set_state(FSMForm.menu)
-
-# Обработчик ввода типа работ
-@dp.message(StateFilter(FSMForm.work_type))
-async def process_name_sent(message: Message, state: FSMContext):
-    await state.update_data(WorkType=message.text)
     await state.set_state(FSMForm.fill_VisitDate)
 
-    PlanHouse = InlineKeyboardButton(text='Техплан жилой дом', callback_data='Техплан жилой дом')
-    PlanGarage = InlineKeyboardButton(text='Техплан гараж', callback_data='Техплан гараж')
-    PlanBuilding = InlineKeyboardButton(text='Техплан постройка ', callback_data='Техплан постройка ')
-
-    GoBack = InlineKeyboardButton(text='Вернуться в главное меню', callback_data='GoBack')
-    keyboard: list[list[InlineKeyboardButton]] = [
-        [PlanHouse, PlanGarage],
-        [PlanBuilding, GoBack]
-    ]
-    markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
-    await message.answer(text='Выбери вид работ или введи свой:', reply_markup=markup)
-
-# Обработчик выбора типа работ с клавиатуры
-@dp.callback_query(StateFilter(FSMForm.work_type), F.data.in_(['Техплан жилой дом', 'Техплан гараж', 'Техплан постройка']))
-async def process_advance_press(callback: CallbackQuery, state: FSMContext):
-    await state.update_data(Work=callback.data)
-    work_choise = callback.data
-    await callback.message.edit_text(f"Вы выбрали: {work_choise}")
-    await callback.message.answer(text='Хорошо, а теперь введите контактные данные и пояснения')
-    await state.set_state(FSMForm.fill_PhoneNum)
-
 # Обработчик кнопки "Вернуться в главное меню"
 @dp.callback_query(StateFilter(FSMForm.work_type), F.data == 'GoBack')
 async def process_go_back(callback: CallbackQuery, state: FSMContext):
-    await state.finish()
+    await state.clear()
     await callback.message.edit_text("Вы вернулись в главное меню.")
     await state.set_state(FSMForm.menu)
 
 # Обработчик ввода даты визита
-@dp.message(StateFilter(FSMForm.fill_VisitDate))
+@dp.message(FSMForm.fill_VisitDate)
 async def process_date(message: Message, state: FSMContext):
-    today = date.today()
-    tomorrow = today + timedelta(days=1)
-    dates = [today + timedelta(days=i) for i in range(2, 6)]
-    keyboard = [
-        [InlineKeyboardButton(text='Без выезда', callback_data='Без выезда')],
-        [InlineKeyboardButton(text='Сегодня', callback_data=f'date:{today.isoformat()}')],
-        [InlineKeyboardButton(text='Завтра', callback_data=f'date:{tomorrow.isoformat()}')],
-    ] + [
-        [InlineKeyboardButton(text=f'{d.strftime("%d.%m.%y")} ({d.strftime("%a")[:2].capitalize()})',
-                            callback_data=f'date:{d.isoformat()}') for d in dates]
-    ]
-    keyboard.append([InlineKeyboardButton(text='В главное меню', callback_data='menu')])
-    markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
-    await message.answer(text='Выбери дату выезда или введи свою (дд.мм.гггг)',
-        reply_markup=markup
-    )
-
-# Обработчик выбора даты визита с клавиатуры
-@dp.callback_query(StateFilter(FSMForm.fill_VisitDate), F.data.startswith('date:'))
-async def visitDate_press(callback: CallbackQuery, state: FSMContext):
-    date_str = callback.data.split(':')[1]
     try:
-        input_date = date.fromisoformat(date_str)
+        input_date = datetime.strptime(message.text, '%d.%m.%Y').date()
         if input_date >= date.today() and input_date < date.today() + timedelta(days=100):
             await state.update_data(VisitDate=input_date)
-            await callback.message.edit_text(f'Вы выбрали дату: {input_date.strftime("%d.%m.%y")}')
+            await message.answer(f'Вы выбрали дату: {input_date.strftime("%d.%m.%y")}')
             await state.set_state(FSMForm.fill_VisitTime)
+            await message.answer(
+                text='Введите время выезда в формате чч:мм'
+            )
         else:
-            await callback.message.answer('Неверная дата. Пожалуйста, выберите дату в пределах ближайших 100 дней.')
+            await message.answer('Неверная дата. Пожалуйста, выберите дату в пределах ближайших 100 дней.')
     except ValueError:
-        await callback.message.answer('Неверный формат даты.')
-
-# Обработчик кнопки "В главное меню" в выборе даты
-@dp.callback_query(StateFilter(FSMForm.fill_VisitDate), F.data == 'menu')
-async def return_to_menu(callback: CallbackQuery, state: FSMContext):
-    await state.finish()
-    await callback.message.edit_text('Вы вернулись в главное меню.')
-    await state.set_state(FSMForm.menu)
+        await message.answer('Неверный формат даты.')
 
 # Обработчик ввода времени визита
-@dp.message(StateFilter(FSMForm.fill_VisitTime))
+@dp.message(FSMForm.fill_VisitTime)
 async def process_time_input(message: Message, state: FSMContext):
     try:
         hour, minute = map(int, message.text.split(':'))
@@ -246,8 +144,7 @@ async def process_time_input(message: Message, state: FSMContext):
             await state.update_data(VisitTime=f'{hour:02}:{minute:02}')
             await message.answer(f'Вы выбрали время: {hour:02}:{minute:02}')
             await state.set_state(FSMForm.fill_GroundNum)
-            await message.answer(
-                text='Введи кадастровый номер объекта работ (или ориентира, или земельного участка на котором находится объект работ, или кадастрового квартала, если ориентира нет)'
+            await message.answer(text='Введите кадастровый номер объекта работ (или ориентира, или земельного участка на котором находится объект работ, или кадастрового квартала, если ориентира нет)'
             )
         else:
             await message.answer('Неверный формат времени. Пожалуйста, введите время в формате чч:мм.')
@@ -255,120 +152,180 @@ async def process_time_input(message: Message, state: FSMContext):
         await message.answer('Неверный формат времени. Пожалуйста, введите время в формате чч:мм.')
 
 # Обработчик ввода кадастрового номера
-@dp.message(StateFilter(FSMForm.fill_GroundNum))
+@dp.message(FSMForm.fill_GroundNum)
 async def process_GroundNum(message: Message, state: FSMContext):
     await state.update_data(GroundNum=message.text)
-    await message.edit_text(
-            text='Введи кадастровый номер объекта работ (или ориентира, или земельного участка на котором находится объект работ, или кадастрового квартала, если ориентира нет)',
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text='Ввести кадастровый позже', callback_data='Later')],
-                    [InlineKeyboardButton(text='Назад', callback_data='Back')],
-                    [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
-                ]
-            )
+    await message.answer(
+        text='Введите кадастровый номер объекта работ (или ориентира, или земельного участка на котором находится объект работ, или кадастрового квартала, если ориентира нет)',
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text='Ввести кадастровый позже', callback_data='Later')],
+                [InlineKeyboardButton(text='Назад', callback_data='Back')],
+                [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
+            ]
         )
+    )
 
 # Обработчик кнопки "Ввести кадастровый позже"
-@dp.callback_query(StateFilter(FSMForm.fill_GroundNum), F.data == 'Later')
+@dp.callback_query(text='Later')
 async def choise_later(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.fill_Task)
+    await callback.message.edit_text(
+        text='Введите описание заявки (суть работ) - всё что ты хочешь сказать относительно заявки, не вошедшее в предыдущие поля. Если надо прикрепить изображения или файлы - можешь это сделать здесь же.',
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text='Назад', callback_data='Back')],
+                [InlineKeyboardButton(text='Ввести позже', callback_data='Later')],
+                [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
+            ]
+        )
+    )
 
 # Обработчик кнопки "Назад" в вводе кадастрового номера
-@dp.callback_query(StateFilter(FSMForm.fill_GroundNum), F.data == 'Back')
+@dp.callback_query(text='Back')
 async def back_to_prev(callback: CallbackQuery, state: FSMContext):
-    await state.finish()
     await state.set_state(FSMForm.fill_VisitTime)
+    await callback.message.edit_text(
+        text='Введите время выезда в формате чч:мм'
+    )
 
 # Обработчик кнопки "Отменить ввод" в вводе кадастрового номера
-@dp.callback_query(StateFilter(FSMForm.fill_GroundNum), F.data == 'menu')
+@dp.callback_query(text='menu')
 async def return_to_menu(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text('Вы вернулись в главное меню.')
     await state.set_state(FSMForm.menu)
+    await callback.message.answer(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=create_menu_keyboard())
 
 # Обработчик ввода описания заявки
-@dp.message(StateFilter(FSMForm.fill_Task))
+@dp.message(FSMForm.fill_Task)
 async def task(message: Message, state: FSMContext):
     await state.update_data(Task=message.text)
-    await message.edit_text(
-            text='Введи описание заявки (суть работ) - всё что ты хочешь сказать относительно заявки, не вошедшее в предыдущие поля. Если надо прикрепить изображения или файлы - можешь это сделать здесь же.',
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text='Назад', callback_data='back')],
-                    [InlineKeyboardButton(text='Ввести позже', callback_data='later')],
-                    [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
-                ]
-            )
+    await message.answer(
+        text='Введите описание заявки (суть работ) - всё что ты хочешь сказать относительно заявки, не вошедшее в предыдущие поля. Если надо прикрепить изображения или файлы - можешь это сделать здесь же.',
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text='Назад', callback_data='Back')],
+                [InlineKeyboardButton(text='Ввести позже', callback_data='Later')],
+                [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
+            ]
         )
+    )
 
 # Обработчик ввода медиафайлов в описании заявки
-@dp.message(StateFilter(FSMForm.fill_Task_Media))
+@dp.message(FSMForm.fill_Task_Media)
 async def task_media(message: Message, state: FSMContext):
     if message.photo or message.document:
         await state.update_data(Media=message)
         await state.set_state(FSMForm.fill_Price)
+        await message.answer(
+            text='Введите желаемую цену работ'
+        )
     else:
         await message.answer("Пожалуйста, прикрепите фото или файл.")
 
 # Обработчик кнопки "Назад" в описании заявки
-@dp.callback_query(StateFilter(FSMForm.fill_Task), F.data == 'back')
+@dp.callback_query(text='Back')
 async def back_to_prev(callback: CallbackQuery, state: FSMContext):
-    await state.finish()
     await state.set_state(FSMForm.fill_GroundNum)
+    await callback.message.edit_text(
+        text='Введите кадастровый номер объекта работ (или ориентира, или земельного участка на котором находится объект работ, или кадастрового квартала, если ориентира нет)',
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text='Ввести кадастровый позже', callback_data='Later')],
+                [InlineKeyboardButton(text='Назад', callback_data='Back')],
+                [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
+            ]
+        )
+    )
 
 # Обработчик кнопки "Ввести позже" в описании заявки
-@dp.callback_query(StateFilter(FSMForm.fill_Task), F.data == 'later')
+@dp.callback_query(text='Later')
 async def choise_later(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.fill_Source)
+    await callback.message.edit_text(
+        text='Введите источник заявки',
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text='Назад', callback_data='Back')],
+                [InlineKeyboardButton(text='Ввести позже', callback_data='Later')],
+                [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')],
+                [InlineKeyboardButton(text='Я Авито', callback_data='Я Авито')],
+                [InlineKeyboardButton(text='Я Сарафан', callback_data='Я Сарафан')],
+                [InlineKeyboardButton(text='Я Ркк', callback_data='Я Ркк')],
+                [InlineKeyboardButton(text='Другой пользователь', callback_data='Другой пользователь')]
+            ]
+        )
+    )
 
 # Обработчик кнопки "Отменить ввод" в описании заявки
-@dp.callback_query(StateFilter(FSMForm.fill_Task), F.data == 'menu')
+@dp.callback_query(text='menu')
 async def return_to_menu(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text('Вы вернулись в главное меню.')
     await state.set_state(FSMForm.menu)
+    await callback.message.answer(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=create_menu_keyboard())
 
 # Обработчик ввода цены
-@dp.message(StateFilter(FSMForm.fill_Price))
+@dp.message(FSMForm.fill_Price)
 async def price(message: Message, state: FSMContext):
     await state.update_data(Price=message.text)
     keyboard: list[list[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(text='Назад', callback_data='back')],
-        [InlineKeyboardButton(text='Ввести позже', callback_data='later')],
-        [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
+        [InlineKeyboardButton(text='Назад', callback_data='Back')],
+        [InlineKeyboardButton(text='Ввести позже', callback_data='Later')],[InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
     ]
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
     await message.edit_text(text='Восхитительно, а теперь выберите вариант предоплаты:', reply_markup=markup)
 
-
 # Обработчик кнопки "Назад" в вводе цены
-@dp.callback_query(StateFilter(FSMForm.fill_Price), F.data == 'back')
+@dp.callback_query(text='Back')
 async def back_to_prev(callback: CallbackQuery, state: FSMContext):
-    await state.finish()
     await state.set_state(FSMForm.fill_Task)
+    await callback.message.edit_text(
+        text='Введите описание заявки (суть работ) - всё что ты хочешь сказать относительно заявки, не вошедшее в предыдущие поля. Если надо прикрепить изображения или файлы - можешь это сделать здесь же.',
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text='Назад', callback_data='Back')],
+                [InlineKeyboardButton(text='Ввести позже', callback_data='Later')],
+                [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
+            ]
+        )
+    )
 
 # Обработчик кнопки "Ввести позже" в вводе цены
-@dp.callback_query(StateFilter(FSMForm.fill_Price), F.data == 'later')
+@dp.callback_query(text='Later')
 async def choise_later(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text(text='Хорошо, вы можете ввести цену позже.')
     await state.set_state(FSMForm.fill_Source)
+    await callback.message.edit_text(
+        text='Введите источник заявки',
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text='Назад', callback_data='Back')],
+                [InlineKeyboardButton(text='Ввести позже', callback_data='Later')],
+                [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')],
+                [InlineKeyboardButton(text='Я Авито', callback_data='Я Авито')],
+                [InlineKeyboardButton(text='Я Сарафан', callback_data='Я Сарафан')],
+                [InlineKeyboardButton(text='Я Ркк', callback_data='Я Ркк')],
+                [InlineKeyboardButton(text='Другой пользователь', callback_data='Другой пользователь')]
+            ]
+        )
+    )
 
 # Обработчик кнопки "Отменить ввод" в вводе цены
-@dp.callback_query(StateFilter(FSMForm.fill_Price), F.data == 'menu')
+@dp.callback_query(text='menu')
 async def return_to_menu(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text('Вы вернулись в главное меню.')
     await state.set_state(FSMForm.menu)
+    await callback.message.answer(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=create_menu_keyboard())
 
 # Обработчик ввода источника заявки
-@dp.message(StateFilter(FSMForm.fill_Source))
+@dp.message(FSMForm.fill_Source)
 async def phone_num(message: Message, state: FSMContext):
-    await state.update_data(Phone=message.text)
+    await state.update_data(Source=message.text)
     keyboard: list[list[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(text='Назад', callback_data='back')],
-        [InlineKeyboardButton(text='Ввести позже', callback_data='later')],
-        [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')],
+        [InlineKeyboardButton(text='Назад', callback_data='Back')],
+        [InlineKeyboardButton(text='Ввести позже', callback_data='Later')],[InlineKeyboardButton(text='Отменить ввод', callback_data='menu')],
         [InlineKeyboardButton(text='Я Авито', callback_data='Я Авито')],
         [InlineKeyboardButton(text='Я Сарафан', callback_data='Я Сарафан')],
         [InlineKeyboardButton(text='Я Ркк', callback_data='Я Ркк')],
@@ -376,10 +333,10 @@ async def phone_num(message: Message, state: FSMContext):
 
     ]
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
-    await message.answer(text='Выбери источник заявки или введи вручную', reply_markup=markup)
+    await message.answer(text='Выберите источник заявки или введите вручную', reply_markup=markup)
 
 # Обработчик выбора источника заявки с клавиатуры
-@dp.callback_query(F.data.in_(['Я Авито', 'Я Сарафан', 'Я Ркк', 'Другой пользователь']))
+@dp.callback_query(text_contains=['Я Авито', 'Я Сарафан', 'Я Ркк', 'Другой пользователь'])
 async def source_press(callback: CallbackQuery, state: FSMContext):
     await state.update_data(Source=callback.data)
     what = callback.data
@@ -388,29 +345,18 @@ async def source_press(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(text='Лучше не бывает, а теперь введите ссылку')
 
 # Обработчик кнопки "Назад" в выборе источника заявки
-@dp.callback_query(StateFilter(FSMForm.fill_Source), F.data == 'back')
+@dp.callback_query(text='Back')
 async def back_to_prev(callback: CallbackQuery, state: FSMContext):
-    await state.finish()
-    await state.set_state(FSMForm.fill_Task)
+    await state.set_state(FSMForm.fill_Price)
+    await callback.message.edit_text(
+        text='Введите желаемую цену работ'
+    )
 
 # Обработчик кнопки "Ввести позже" в выборе источника заявки
-@dp.callback_query(StateFilter(FSMForm.fill_Source), F.data == 'later')
+@dp.callback_query(text='Later')
 async def choise_later(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.upload)
-
-# Обработчик кнопки "Отменить ввод" в выборе источника заявки
-@dp.callback_query(StateFilter(FSMForm.fill_Source), F.data == 'menu')
-async def return_to_menu(callback: CallbackQuery, state: FSMContext):
-    await state.clear()
-    await callback.message.edit_text('Вы вернулись в главное меню.')
-    await state.set_state(FSMForm.menu)
-
-# Обработчик ввода ссылки
-@dp.message(StateFilter(FSMForm.fill_Link))
-async def process_link(message: Message, state: FSMContext):
-    await state.update_data(Link=message.text)
-    await state.set_state(FSMForm.upload)
-    await message.answer(
+    await callback.message.edit_text(
         text='Отлично, теперь вы можете просмотреть и отправить заявку',
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
@@ -423,7 +369,39 @@ async def process_link(message: Message, state: FSMContext):
 
                 ],
                 [
-                    InlineKeyboardButton(text="Назад", callback_data="back"),
+                    InlineKeyboardButton(text="Назад", callback_data="Back"),InlineKeyboardButton(text="Отменить ввод", callback_data="cancel"),
+                ]
+            ]
+        )
+    )
+
+# Обработчик кнопки "Отменить ввод" в выборе источника заявки
+@dp.callback_query(text='menu')
+async def return_to_menu(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text('Вы вернулись в главное меню.')
+    await state.set_state(FSMForm.menu)
+    await callback.message.answer(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=create_menu_keyboard())
+
+# Обработчик ввода ссылки
+@dp.message(FSMForm.fill_Link)
+async def process_link(message: Message, state: FSMContext):
+    await state.update_data(Link=message.text)
+    await state.set_state(FSMForm.upload)
+    await message.edit_text(
+        text='Отлично, теперь вы можете просмотреть и отправить заявку',
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="Опубликовать", callback_data="publish"),
+
+                ],
+                [
+                    InlineKeyboardButton(text="Опубликовать и создать новую", callback_data="publish_and_create"),
+
+                ],
+                [
+                    InlineKeyboardButton(text="Назад", callback_data="Back"),
                     InlineKeyboardButton(text="Отменить ввод", callback_data="cancel"),
                 ]
             ]
@@ -431,7 +409,7 @@ async def process_link(message: Message, state: FSMContext):
     )
 
 # Обработчик отправки заявки
-@dp.callback_query(StateFilter(FSMForm.upload), F.data == 'publish')
+@dp.callback_query(text='publish')
 async def publish_handler(call: CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
     if user_data:
@@ -448,12 +426,18 @@ async def publish_handler(call: CallbackQuery, state: FSMContext):
             f'Ссылка: {user_data["Link"]}\n'
         )
         await call.answer("Заявка опубликована!")
-        await call.message.delete()
+        try:
+            await call.message.delete()
+        except MessageToDeleteNotFound:
+            pass  # В случае, если сообщение уже было удалено
         await state.finish()
-        await bot.send_photo(chat_id=call.message.chat.id, photo=user_data['Media'], caption=caption)
+        if 'Media' in user_data:
+            await bot.send_photo(chat_id=call.message.chat.id, photo=user_data['Media'], caption=caption)
+        else:
+            await bot.send_message(chat_id=call.message.chat.id, text=caption)
 
 # Обработчик отправки заявки и создания новой
-@dp.callback_query(StateFilter(FSMForm.upload), F.data == 'publish_and_create')
+@dp.callback_query(text='publish_and_create')
 async def publish_and_create_handler(call: CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
     if user_data:
@@ -470,23 +454,33 @@ async def publish_and_create_handler(call: CallbackQuery, state: FSMContext):
             f'Ссылка: {user_data["Link"]}\n'
         )
         await call.answer("Заявка опубликована!")
-        await call.message.delete()
+        try:
+            await call.message.delete()
+        except MessageToDeleteNotFound:
+            pass
         await state.set_state(FSMForm.menu)
-        await bot.send_photo(chat_id=call.message.chat.id, photo=user_data['Media'], caption=caption)
+        await call.message.answer(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=create_menu_keyboard())
+        if 'Media' in user_data:
+            await bot.send_photo(chat_id=call.message.chat.id, photo=user_data['Media'], caption=caption)
+        else:
+            await bot.send_message(chat_id=call.message.chat.id, text=caption)
 
 # Обработчик кнопки "Назад" при просмотре заявки
-@dp.callback_query_handler(StateFilter(FSMForm.upload), F.data == 'back')
+@dp.callback_query(text='Back')
 async def back_handler(call: CallbackQuery, state: FSMContext):
     await call.answer("Вернулись к предыдущему шагу")
     await call.message.delete()
-    await state.set_state(FSMForm.fill_Source)
+    await state.set_state(FSMForm.fill_Link)
+    await call.message.answer(text='Лучше не бывает, а теперь введите ссылку')
 
 # Обработчик кнопки "Отменить ввод" при просмотре заявки
-@dp.callback_query_handler(StateFilter(FSMForm.upload), F.data == 'cancel')
+@dp.callback_query(text='cancel')
 async def cancel_handler(call: CallbackQuery, state: FSMContext):
     await call.answer("Ввод отменен")
     await call.message.delete()
     await state.clear()
+    await state.set_state(FSMForm.menu)
+    await call.message.answer(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=create_menu_keyboard())
 
 if __name__ == '__main__':
     dp.run_polling(bot)
