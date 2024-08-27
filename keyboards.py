@@ -21,11 +21,12 @@ def create_work_keyboard():
         inline_keyboard=[
             [InlineKeyboardButton(text='Техплан жилой дом', callback_data='Техплан жилой дом')],
             [InlineKeyboardButton(text='Техплан гараж', callback_data='Техплан гараж')],
-            [InlineKeyboardButton(text='Техплан постройка ', callback_data='Техплан постройка ')],
+            [InlineKeyboardButton(text='Техплан постройка', callback_data='Техплан постройка')],
             [InlineKeyboardButton(text='Вернуться в главное меню', callback_data='GoBack')]
         ]
     )
     return keyboard
+
 #Клавиатура выбора даты
 def create_date_keyboard():
     today = date.today()
@@ -74,6 +75,57 @@ def create_task_keyboard():
                 [InlineKeyboardButton(text='Ввести позже', callback_data='Later')],
                 [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
 
+            ]
+        )
+    return keyboard
+
+# Клавиатура для выбора варианта для телефона
+def create_phon_keyboard():
+    keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text='Назад', callback_data='Back')],
+                [InlineKeyboardButton(text='Ввести позже', callback_data='Later')],
+                [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
+
+            ]
+        )
+    return keyboard
+
+# Клавиатура выбора источника заявки
+def create_source_keyboard():
+    keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text='Назад', callback_data='Back')],
+                [InlineKeyboardButton(text='Ввести позже', callback_data='Later')],
+                [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')],
+                [InlineKeyboardButton(text='Я Авито', callback_data='Я Авито')],
+                [InlineKeyboardButton(text='Я Сарафан', callback_data='Я Сарафан')],
+                [InlineKeyboardButton(text='Я Ркк', callback_data='Я Ркк')],
+                [InlineKeyboardButton(text='Другой пользователь', callback_data='Другой пользователь')]
+            ]
+        )
+    return keyboard
+
+# Клавиатура для выбора варианта про оплату
+def create_price_keyboard():
+    keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text='Назад', callback_data='Back')],
+                [InlineKeyboardButton(text='Ввести позже', callback_data='Later')],
+                [InlineKeyboardButton(text='Отменить ввод', callback_data='menu')]
+
+            ]
+        )
+    return keyboard
+
+# Клавиатура для публикации
+def create_publish_keyboard():
+    keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Опубликовать", callback_data="publish")],
+                [InlineKeyboardButton(text="Опубликовать и создать новую", callback_data="publish_and_create")],
+                [InlineKeyboardButton(text="Назад", callback_data="Back")],
+                [InlineKeyboardButton(text="Отменить ввод", callback_data="cancel")]
             ]
         )
     return keyboard
