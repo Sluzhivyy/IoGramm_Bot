@@ -137,7 +137,6 @@ async def return_to_menu_handler(callback: CallbackQuery, state: FSMContext):
     )
     await state.set_state(FSMForm.menu)
 
-
 # --- Хендлеры для ввода времени выезда ---
 @dp.message(StateFilter(FSMForm.fill_VisitTime))
 async def fill_visit_time_handler(message: Message, state: FSMContext):
@@ -177,10 +176,12 @@ async def go_back_handler(callback: CallbackQuery, state: FSMContext):
 
 
 # --- Хендлеры для ввода кадастрового номера ---
-@dp.message(FSMForm.fill_GroundNum)
+@dp.message(FSMForm.fill_GroundNum,F.text)
 async def fill_ground_num_handler(message: Message, state: FSMContext):
     await state.update_data(GroundNum=message.text)
     await message.answer(text='Введите кадастровый номер объекта работ (или ориентира, или земельного участка на котором находится объект работ, или кадастрового квартала, если ориентира нет)',reply_markup = create_ground_keyboard())
+    await message.answer(text='Введи контактные данные (номера телефонов, имена контактов)',reply_markup = create_phon_keyboard())
+    await state.set_state(FSMForm.fill_PhoneNum)
 
 @dp.callback_query(StateFilter(FSMForm.fill_GroundNum), F.data == 'Later')
 async def choise_later_handler(callback: CallbackQuery, state: FSMContext):
@@ -199,11 +200,6 @@ async def return_to_menu_handler(callback: CallbackQuery, state: FSMContext):
     await state.set_state(FSMForm.menu)
 
 
-@dp.message(FSMForm.fill_GroundNum, F.text)
-async def fill_ground_num_text_handler(message: Message, state: FSMContext):
-    await state.update_data(GroundNum=message.text)
-    await message.edit_text(text='Введи контактные данные (номера телефонов, имена контактов)',reply_markup = create_phon_keyboard())
-    await state.set_state(FSMForm.fill_PhoneNum)
 
 
 # --- Хендлеры для ввода телефона ---
