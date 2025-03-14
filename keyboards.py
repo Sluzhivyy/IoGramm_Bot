@@ -1,5 +1,12 @@
-from aiogram.types import (CallbackQuery, InlineKeyboardButton,InlineKeyboardMarkup, Message, PhotoSize)
+from aiogram.types import (CallbackQuery, InlineKeyboardButton,InlineKeyboardMarkup, Message, PhotoSize, WebAppInfo)
 from datetime import datetime, date, timedelta
+
+def veb_site():
+    keyboard = InlineKeyboardMarkup()
+    web_app_button = InlineKeyboardButton("Открыть публичную кадастровую карту", web_app=WebAppInfo(url="https://lk1map.roscadastres.com/map/kaliningradskaya-oblast/kaliningrad"))
+    keyboard.add(web_app_button)
+
+
 
 # Функции для создания клавиатур
 def Info_keyboard():
@@ -34,15 +41,28 @@ def create_date_keyboard():
     today = date.today()
     tomorrow = today + timedelta(days=1)
     dates = [today + timedelta(days=i) for i in range(2, 6)]
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text='Без выезда', callback_data='Без выезда')],
-            [InlineKeyboardButton(text='Сегодня', callback_data=f'date:{today.isoformat()}')],
-            [InlineKeyboardButton(text='Завтра', callback_data=f'date:{tomorrow.isoformat()}')],
-            *[ [InlineKeyboardButton(text=f'{d.strftime("%d.%m.%y")} ({d.strftime("%a")[:2].capitalize()})', callback_data=f'date:{d.isoformat()}')] for d in dates ],
-            [InlineKeyboardButton(text='В главное меню', callback_data='menu')]
-        ]
-    )
+
+    # Создаем список для кнопок
+    buttons = [
+        [InlineKeyboardButton(text='Без выезда', callback_data='Без выезда')],
+        [InlineKeyboardButton(text='Сегодня', callback_data=f'date:{today.isoformat()}'),
+        InlineKeyboardButton(text='Завтра', callback_data=f'date:{tomorrow.isoformat()}')]
+    ]
+
+    # Добавляем кнопки с датами в два ряда
+    for i in range(0, len(dates), 2):
+        row = []
+        if i < len(dates):
+            row.append(InlineKeyboardButton(text=f'{dates[i].strftime("%d.%m.%y")} ({dates[i].strftime("%a")[:2].capitalize()})', callback_data=f'date:{dates[i].isoformat()}'))
+        if i + 1 < len(dates):
+            row.append(InlineKeyboardButton(text=f'{dates[i + 1].strftime("%d.%m.%y")} ({dates[i + 1].strftime("%a")[:2].capitalize()})', callback_data=f'date:{dates[i + 1].isoformat()}'))
+        buttons.append(row)
+
+    # Добавляем кнопку для возврата в главное меню
+    buttons.append([InlineKeyboardButton(text='В главное меню', callback_data='menu')])
+
+    # Создаем клавиатуру
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
 
 

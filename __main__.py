@@ -277,50 +277,64 @@ async def publish_clear(call: CallbackQuery, state: FSMContext):
 async def publish_handler(call: CallbackQuery, state: FSMContext):
     user_data = await state.get_data()
 
-
-
-
-
     if user_data:
         caption = (
-            f"✅ Ваша заявка успешно создана!\n"
-            f'Номер заявки: {uuid.uuid4()}\n'
-            f'Дата создания заявки: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n'
-            f'Вид работ: {user_data.get("WorkType", "Не указано")}\n'
-            f"📅 Дата выезда: {user_data.get('VisitDate', 'Не указана')}\n"
-            f"🕒 Время выезда: {user_data.get('VisitTime', 'Не указано')}\n"
-            f"🏡 Кадастровый номер: {user_data.get('GroundNum', 'Не указан')}\n"
-            f"📞 Контактные данные: {user_data.get('PhoneNum', 'Не указаны')}\n"
-        )
+        f"✅ Ваша заявка успешно создана!\n"
+        f'Номер заявки: {uuid.uuid4()}\n'
+        f'Дата создания заявки: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n'
+        f'Вид работ: {user_data.get("WorkType", "Не указано")}\n'
+        f"📅 Дата выезда: {user_data.get('VisitDate', 'Не указана')}\n"
+        f"🕒 Время выезда: {user_data.get('VisitTime', 'Не указано')}\n"
+        f"🏡 Кадастровый номер: {user_data.get('GroundNum', 'Не указан')}\n"
+        f"📞 Контактные данные: {user_data.get('PhoneNum', 'Не указаны')}\n"
+    )
 
-        # Получаем описание, если медиа отсутствует
-        media_description = user_data.get('Media', {}).get('description', None)
-        task_description = user_data.get("Task", "Не указано")
+    # Получаем описание, если медиа отсутствует
+    media_description = user_data.get('Media', {}).get('description', None)
+    task_description = user_data.get("Task", "Не указано")
 
-        if media_description:
-            caption += f'📝 Описание: {media_description}\n'
-        else:
-            caption += f'📝 Описание: {task_description}\n'
+    if media_description:
+        caption += f'📝 Описание: {media_description}\n'
+    else:
+        caption += f'📝 Описание: {task_description}\n'
 
-        await call.answer("Заявка опубликована!")
+    await call.answer("Заявка опубликована!")
 
-        try:
-            await call.message.delete()
-        except MessageToDeleteNotFound:
-            pass
+    try:
+        await call.message.delete()
+    except MessageToDeleteNotFound:
+        pass
 
-        await state.clear()
+    await state.clear()
 
-        if 'Media' in user_data and user_data['Media'] is not None:
-            media_type = user_data['Media']['type']
-            file_id = user_data['Media']['id']
+    # Отправляем медиа, если оно есть
+    if 'Media' in user_data and user_data['Media'] is not None:
+        media_type = user_data['Media']['type']
+        file_id = user_data['Media']['id']
 
-            if media_type == 'photo':
-                await bot.send_photo(chat_id=call.message.chat.id, photo=file_id, caption=caption)
-            elif media_type == 'document':
-                await bot.send_document(chat_id=call.message.chat.id, document=file_id, caption=caption)
-        else:
-            await bot.send_message(chat_id=call.message.chat.id, text=caption)
+        if media_type == 'photo':
+            await bot.send_photo(chat_id=call.message.chat.id, photo=file_id, caption=caption)
+        elif media_type == 'document':
+            await bot.send_document(chat_id=call.message.chat.id, document=file_id, caption=caption)
+    else:
+        await bot.send_message(chat_id=call.message.chat.id, text=caption)
+
+    # Добавляем кнопку для открытия кадастровой карты
+    cadastre_number = user_data.get('GroundNum', '')
+    base_url = "https://map.ru/pkk?kad="
+
+    if cadastre_number:
+        full_url = f"{base_url}{cadastre_number}&z=17"
+    else:
+        full_url = base_url
+
+    web_app_button = InlineKeyboardButton(text="Открыть кадастровую карту", url=full_url)
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[web_app_button]])
+
+    await bot.send_message(chat_id=call.message.chat.id, text="Вы можете открыть кадастровую карту, нажав на кнопку ниже:", reply_markup=keyboard)
+
+
+
 
 
 
