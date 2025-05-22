@@ -63,7 +63,6 @@ async def process_menu(message: Message, state: FSMContext):
 # Обработка любых текстовых сообщений в состоянии menu
 @dp.message(StateFilter(FSMForm.menu))
 async def p_menu(message: Message, state: FSMContext):
-    # Отвечаем предупреждением, без повторной отправки клавиатуры
     await message.answer(
         'Зачем? Выберите действие из "Заполнить форму" и "Информация о функционале".'
     )
@@ -73,7 +72,7 @@ async def p_menu(message: Message, state: FSMContext):
 async def form_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         text='Выберите вид работ или введите свой:',
-        reply_markup=None
+        reply_markup=create_work_keyboard()  # Добавляем клавиатуру
     )
     await state.set_state(FSMForm.work_type)
 
@@ -81,12 +80,10 @@ async def form_handler(callback: CallbackQuery, state: FSMContext):
 async def info_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         text='👋 Привет!\n'
-             'Я создан для того, чтобы сделать процесс заполнения форм максимально простым и удобным.\n'
-             'Для того чтобы начать заполнение, нажми на кнопку "Заполнить форму"'
+            'Я создан для того, чтобы сделать процесс заполнения форм максимально простым и удобным.\n'
+            'Для того чтобы начать заполнение, нажми на кнопку "Заполнить форму"'
     )
-    # Возвращаем состояние в меню
     await state.set_state(FSMForm.menu)
-    # Отправляем меню с клавиатурой (только один раз)
     await callback.message.answer(
         text='Вы находитесь в меню, выберите нужную вам опцию',
         reply_markup=create_menu_keyboard()
@@ -95,14 +92,13 @@ async def info_handler(callback: CallbackQuery, state: FSMContext):
 # Хендлеры для выбора типа работ
 @dp.message(StateFilter(FSMForm.work_type))
 async def work_type_handler(message: Message, state: FSMContext):
-    await message.edit_text(
-        text='Выберите вид работ или введите свой:',
-        reply_markup=None
-    )
     await state.update_data(WorkType=message.text)
     print(await state.get_data())
+    await message.answer(
+        text='Выберите дату выезда или введите свою (дд.мм.гггг)',
+        reply_markup=create_date_keyboard()  # Добавляем клавиатуру
+    )
     await state.set_state(FSMForm.fill_VisitDate)
-    await message.answer(text='Выберите дату выезда или введите свою (дд.мм.гггг)')
 
 @dp.callback_query(StateFilter(FSMForm.work_type), lambda c: c.data in ['Техплан жилой дом', 'Техплан гараж', 'Техплан постройка'])
 async def work_type_press_handler(callback: CallbackQuery, state: FSMContext):
@@ -110,7 +106,7 @@ async def work_type_press_handler(callback: CallbackQuery, state: FSMContext):
     print(await state.get_data())
     await callback.message.edit_text(
         text='Выберите дату выезда или введите свою (дд.мм.гггг)',
-        reply_markup=create_date_keyboard()
+        reply_markup=create_date_keyboard()  # Добавляем клавиатуру
     )
     await state.set_state(FSMForm.fill_VisitDate)
 
@@ -118,7 +114,7 @@ async def work_type_press_handler(callback: CallbackQuery, state: FSMContext):
 async def go_back_handler(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await state.set_state(FSMForm.menu)
-    await callback.message.edit_text(
+    await callback.message.answer(
         text='Вы находитесь в меню, выберите нужную вам опцию',
         reply_markup=create_menu_keyboard()
     )
@@ -131,9 +127,8 @@ async def fill_visit_date_handler(message: Message, state: FSMContext):
         if input_date >= date.today() and input_date < date.today() + timedelta(days=100):
             await state.update_data(VisitDate=input_date)
             print(await state.get_data())
-            await message.answer('Выберите время выезда или введите в формате чч:мм', reply_markup=None)
+            await message.answer('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())  # Добавляем клавиатуру
             await state.set_state(FSMForm.fill_VisitTime)
-            await message.edit_text('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())
         else:
             await message.answer('Неверная дата. Пожалуйста, выберите дату в пределах ближайших 100 дней.', reply_markup=None)
     except ValueError:
@@ -147,8 +142,8 @@ async def visit_date_press_handler(callback: CallbackQuery, state: FSMContext):
         if input_date >= date.today() and input_date < date.today() + timedelta(days=100):
             await state.update_data(VisitDate=input_date)
             print(await state.get_data())
+            await callback.message.edit_text('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())  # Добавляем клавиатуру
             await state.set_state(FSMForm.fill_VisitTime)
-            await callback.message.edit_text('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())
         else:
             await callback.message.answer('Неверная дата. Пожалуйста, выберите дату в пределах ближайших 100 дней.')
     except ValueError:
@@ -158,7 +153,7 @@ async def visit_date_press_handler(callback: CallbackQuery, state: FSMContext):
 async def without_time_handler(callback: CallbackQuery, state: FSMContext):
     await state.update_data(VisitDate='Без выезда')
     await state.set_state(FSMForm.fill_VisitTime)
-    await callback.message.edit_text('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())
+    await callback.message.edit_text('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())  # Добавляем клавиатуру
 
 @dp.callback_query(StateFilter(FSMForm.fill_VisitDate), lambda c: c.data == 'menu')
 async def return_to_menu_handler(callback: CallbackQuery, state: FSMContext):
@@ -176,7 +171,7 @@ async def fill_visit_time_handler(message: Message, state: FSMContext):
         hour, minute = map(int, message.text.split(':'))
         if 0 <= hour <= 23 and 0 <= minute <= 59:
             await state.update_data(VisitTime=f'{hour:02}:{minute:02}')
-            await message.edit_text(text='Введите кадастровый номер объекта работ (или ориентира, или земельного участка на котором находится объект работ, или кадастрового квартала, если ориентира нет)', reply_markup=None)
+            await message.answer(text='Введите кадастровый номер объекта работ (или ориентира, или земельного участка на котором находится объект работ, или кадастрового квартала, если ориентира нет)', reply_markup=create_ground_keyboard())  # Добавляем клавиатуру
             await state.set_state(FSMForm.fill_GroundNum)
             print(await state.get_data())
         else:
@@ -189,7 +184,7 @@ async def visit_time_press_handler(callback: CallbackQuery, state: FSMContext):
     time_str = callback.data
     await state.update_data(VisitTime=time_str)
     print(await state.get_data())
-    await callback.message.edit_text(text='Введите кадастровый номер объекта недвижимости в отношении которого будут проводиться работы (или участка на котором объект недвижимости расположен или ориентира)', reply_markup=create_ground_keyboard())
+    await callback.message.edit_text(text='Введите кадастровый номер объекта недвижимости в отношении которого будут проводиться работы (или участка на котором объект недвижимости расположен или ориентира)', reply_markup=create_ground_keyboard())  # Добавляем клавиатуру
     await state.set_state(FSMForm.fill_GroundNum)
 
 # Хендлеры для ввода кадастрового номера
@@ -197,24 +192,24 @@ async def visit_time_press_handler(callback: CallbackQuery, state: FSMContext):
 async def fill_ground_num_handler(message: Message, state: FSMContext):
     await state.update_data(GroundNum=message.text)
     print(await state.get_data())
-    await message.answer(text='Введите контактные данные', reply_markup=create_phon_keyboard())
+    await message.answer(text='Введите контактные данные', reply_markup=create_phon_keyboard())  # Добавляем клавиатуру
     await state.set_state(FSMForm.fill_PhoneNum)
 
 @dp.callback_query(StateFilter(FSMForm.fill_GroundNum), lambda c: c.data == 'menu')
 async def return_to_menu_handler(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=create_menu_keyboard())
+    await callback.message.answer(text='Вы находитесь в меню, выберите нужную вам опцию', reply_markup=create_menu_keyboard())
     await state.set_state(FSMForm.menu)
 
 # Хендлеры для ввода номера телефона
 @dp.message(StateFilter(FSMForm.fill_PhoneNum))
 async def fill_phone_num_handler(message: Message, state: FSMContext):
     phone_num = message.text.strip()
-    if re.match(r'^\+?\d{10,15}$', phone_num):  # Исправлена ошибка в регулярном выражении
+    if re.match(r'^\+?\d{10,15}$', phone_num):  # Исправлено регулярное выражение
         await state.update_data(PhoneNum=phone_num)
         await message.answer(
             'Спасибо! Ваш номер телефона успешно сохранен.\nА теперь можете прикрепить медиа и описать задачу',
-            reply_markup=None  # Убираем клавиатуру
+            reply_markup=create_task_keyboard()  # Добавляем клавиатуру
         )
         await state.set_state(FSMForm.fill_Task)
         print(await state.get_data())
@@ -237,10 +232,9 @@ async def fill_task_handler(message: Message, state: FSMContext):
     file_id = None
     media_description = message.caption if message.caption else ""
 
-    # Сохраняем текст заявки независимо от наличия медиа
     if message.text:
         await state.update_data(Task=message.text)
-        print(f"Текст заявки сохранен: {message.text}")  # Выводим текст заявки для проверки
+        print(f"Текст заявки сохранен: {message.text}")
 
     if message.photo:
         media_type = 'photo'
@@ -249,14 +243,13 @@ async def fill_task_handler(message: Message, state: FSMContext):
         media_type = 'document'
         file_id = message.document.file_id
 
-    # Сохраняем информацию о медиа, если она есть
     if media_type and file_id:
         await state.update_data(Media={'type': media_type, 'id': file_id, 'description': media_description})
 
-    print(await state.get_data())  # Проверяем данные состояния
+    print(await state.get_data())
     await message.answer(
         text='Заявка создана, публикуем?',
-        reply_markup=create_publish_keyboard()
+        reply_markup=create_publish_keyboard()  # Добавляем клавиатуру
     )
     await state.set_state(FSMForm.upload)
 

@@ -42,7 +42,6 @@ def create_date_keyboard():
     tomorrow = today + timedelta(days=1)
     dates = [today + timedelta(days=i) for i in range(2, 6)]
 
-    # Создаем список для кнопок
     buttons = [
         [InlineKeyboardButton(text='Без выезда', callback_data='Без выезда')],
         [InlineKeyboardButton(text='Сегодня', callback_data=f'date:{today.isoformat()}'),
