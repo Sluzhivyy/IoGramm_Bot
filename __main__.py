@@ -72,7 +72,7 @@ async def p_menu(message: Message, state: FSMContext):
 async def form_handler(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         text='Выберите вид работ или введите свой:',
-        reply_markup=create_work_keyboard()  # Добавляем клавиатуру
+        reply_markup=create_work_keyboard()
     )
     await state.set_state(FSMForm.work_type)
 
@@ -96,7 +96,7 @@ async def work_type_handler(message: Message, state: FSMContext):
     print(await state.get_data())
     await message.answer(
         text='Выберите дату выезда или введите свою (дд.мм.гггг)',
-        reply_markup=create_date_keyboard()  # Добавляем клавиатуру
+        reply_markup=create_date_keyboard()
     )
     await state.set_state(FSMForm.fill_VisitDate)
 
@@ -106,7 +106,7 @@ async def work_type_press_handler(callback: CallbackQuery, state: FSMContext):
     print(await state.get_data())
     await callback.message.edit_text(
         text='Выберите дату выезда или введите свою (дд.мм.гггг)',
-        reply_markup=create_date_keyboard()  # Добавляем клавиатуру
+        reply_markup=create_date_keyboard()
     )
     await state.set_state(FSMForm.fill_VisitDate)
 
@@ -127,7 +127,7 @@ async def fill_visit_date_handler(message: Message, state: FSMContext):
         if input_date >= date.today() and input_date < date.today() + timedelta(days=100):
             await state.update_data(VisitDate=input_date)
             print(await state.get_data())
-            await message.answer('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())  # Добавляем клавиатуру
+            await message.answer('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())
             await state.set_state(FSMForm.fill_VisitTime)
         else:
             await message.answer('Неверная дата. Пожалуйста, выберите дату в пределах ближайших 100 дней.', reply_markup=None)
@@ -142,7 +142,7 @@ async def visit_date_press_handler(callback: CallbackQuery, state: FSMContext):
         if input_date >= date.today() and input_date < date.today() + timedelta(days=100):
             await state.update_data(VisitDate=input_date)
             print(await state.get_data())
-            await callback.message.edit_text('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())  # Добавляем клавиатуру
+            await callback.message.edit_text('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())
             await state.set_state(FSMForm.fill_VisitTime)
         else:
             await callback.message.answer('Неверная дата. Пожалуйста, выберите дату в пределах ближайших 100 дней.')
@@ -153,7 +153,7 @@ async def visit_date_press_handler(callback: CallbackQuery, state: FSMContext):
 async def without_time_handler(callback: CallbackQuery, state: FSMContext):
     await state.update_data(VisitDate='Без выезда')
     await state.set_state(FSMForm.fill_VisitTime)
-    await callback.message.edit_text('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())  # Добавляем клавиатуру
+    await callback.message.edit_text('Выберите время выезда или введите в формате чч:мм', reply_markup=create_time_keyboard())
 
 @dp.callback_query(StateFilter(FSMForm.fill_VisitDate), lambda c: c.data == 'menu')
 async def return_to_menu_handler(callback: CallbackQuery, state: FSMContext):
@@ -171,7 +171,7 @@ async def fill_visit_time_handler(message: Message, state: FSMContext):
         hour, minute = map(int, message.text.split(':'))
         if 0 <= hour <= 23 and 0 <= minute <= 59:
             await state.update_data(VisitTime=f'{hour:02}:{minute:02}')
-            await message.answer(text='Введите кадастровый номер объекта работ (или ориентира, или земельного участка на котором находится объект работ, или кадастрового квартала, если ориентира нет)', reply_markup=create_ground_keyboard())  # Добавляем клавиатуру
+            await message.answer(text='Введите кадастровый номер объекта работ (или ориентира, или земельного участка на котором находится объект работ, или кадастрового квартала, если ориентира нет)', reply_markup=create_ground_keyboard())
             await state.set_state(FSMForm.fill_GroundNum)
             print(await state.get_data())
         else:
@@ -184,7 +184,7 @@ async def visit_time_press_handler(callback: CallbackQuery, state: FSMContext):
     time_str = callback.data
     await state.update_data(VisitTime=time_str)
     print(await state.get_data())
-    await callback.message.edit_text(text='Введите кадастровый номер объекта недвижимости в отношении которого будут проводиться работы (или участка на котором объект недвижимости расположен или ориентира)', reply_markup=create_ground_keyboard())  # Добавляем клавиатуру
+    await callback.message.edit_text(text='Введите кадастровый номер объекта недвижимости в отношении которого будут проводиться работы (или участка на котором объект недвижимости расположен или ориентира)', reply_markup=create_ground_keyboard())
     await state.set_state(FSMForm.fill_GroundNum)
 
 # Хендлеры для ввода кадастрового номера
@@ -192,7 +192,7 @@ async def visit_time_press_handler(callback: CallbackQuery, state: FSMContext):
 async def fill_ground_num_handler(message: Message, state: FSMContext):
     await state.update_data(GroundNum=message.text)
     print(await state.get_data())
-    await message.answer(text='Введите контактные данные', reply_markup=create_phon_keyboard())  # Добавляем клавиатуру
+    await message.answer(text='Введите контактные данные', reply_markup=create_phon_keyboard())
     await state.set_state(FSMForm.fill_PhoneNum)
 
 @dp.callback_query(StateFilter(FSMForm.fill_GroundNum), lambda c: c.data == 'menu')
@@ -205,11 +205,11 @@ async def return_to_menu_handler(callback: CallbackQuery, state: FSMContext):
 @dp.message(StateFilter(FSMForm.fill_PhoneNum))
 async def fill_phone_num_handler(message: Message, state: FSMContext):
     phone_num = message.text.strip()
-    if re.match(r'^\+?\d{10,15}$', phone_num):  # Исправлено регулярное выражение
+    if re.match(r'^\+?\d{10,15}$', phone_num):
         await state.update_data(PhoneNum=phone_num)
         await message.answer(
             'Спасибо! Ваш номер телефона успешно сохранен.\nА теперь можете прикрепить медиа и описать задачу',
-            reply_markup=create_task_keyboard()  # Добавляем клавиатуру
+            reply_markup=create_task_keyboard()
         )
         await state.set_state(FSMForm.fill_Task)
         print(await state.get_data())
@@ -249,7 +249,7 @@ async def fill_task_handler(message: Message, state: FSMContext):
     print(await state.get_data())
     await message.answer(
         text='Заявка создана, публикуем?',
-        reply_markup=create_publish_keyboard()  # Добавляем клавиатуру
+        reply_markup=create_publish_keyboard()
     )
     await state.set_state(FSMForm.upload)
 
