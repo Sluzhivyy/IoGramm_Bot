@@ -10,6 +10,8 @@ from keyboards import *
 from env import BOT_TOKEN
 import locale
 import re
+from keep_alive import keep_alive
+keep_alive()
 
 storage = MemoryStorage()
 bot = Bot(BOT_TOKEN)
